@@ -3,6 +3,8 @@
 
 = Usage =
 
+== SparkPlug.php ==
+
 Add the file to your application/libraries folder
 
 In the controller you want to scaffold load the class and pass the table name as a parameter:
@@ -21,10 +23,30 @@ class Scaffold_test extends Controller {
 }
 }}}
 
-Going to the index function in your browser will run the scaffolding.  There is *NO* warning, yet.  It just does it's thing, no questions asked.
+Going to the index function in your browser will run the scaffolding.  There is *NO* warning, yet.  It just does it's thing, no questions asked.  Read Caution statement at the bottom of the page.
+
+== Scaffold.php ==
+
+This does pretty much the same thing that the CI default scaffolding does
+
+{{{
+<?php
+class Scaffold_test extends Controller {
+
+	function Scaffold_test() {
+		parent::Controller();
+	}
+		
+	function scaff() {
+		$this->load->library('scaffold', 'table_name');
+	}
+}
+}}}
+
+Going to the scaff controller will present you with basic CRUD functions generated on-the-fly.
 
 
-= Caution =
+= Caution - when using SparkPlug =
 
   * Your controller will be *replaced*, any existing code will be lost.
   * I highly suggest you make sure the paths the script uses are correct.
