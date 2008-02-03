@@ -1,4 +1,5 @@
 #summary Usage and installation notes
+#labels Featured
 
 = Usage =
 
