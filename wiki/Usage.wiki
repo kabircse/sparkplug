@@ -48,6 +48,6 @@ Going to the scaff controller will present you with basic CRUD functions generat
 
 = Caution - when using SparkPlug =
 
-  * Your controller will be *replaced*, any existing code will be lost.
+  * Existing files that share a name with the generated version (such as the controller you're calling the scaffold from) will be *replaced*, any existing code will be lost.
   * I highly suggest you make sure the paths the script uses are correct.
   * I am *NOT* responsible for any lost data.
