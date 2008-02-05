@@ -32,7 +32,7 @@ Scaffold will present you with all the functions scaffold gives you, but it does
 Using Generate the current controller will be overwritten with any code you need.
 
 
-Going to the index function in your browser will run the scaffolding.  There is *NO* warning, yet.  It just does it's thing, no questions asked.  Read Caution statement at the bottom of the page.
+In this case, going to the index function in your browser will run the scaffolding.  There is *NO* warning, yet.  It just does it's thing, no questions asked.  Read Caution statement at the bottom of the page.
 
 
 = Caution - when using SparkPlug =
