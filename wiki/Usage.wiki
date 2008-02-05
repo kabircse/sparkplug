@@ -43,7 +43,7 @@ class Scaffold_test extends Controller {
 }
 }}}
 
-Going to the scaff controller will present you with basic CRUD functions generated on-the-fly.
+Pointing your browser at the proper controller/function (scaffold_test/scaff in this case) will present you with basic CRUD functions generated on-the-fly.
 
 
 = Caution - when using SparkPlug =
