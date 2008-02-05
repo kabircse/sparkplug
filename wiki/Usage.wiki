@@ -5,9 +5,9 @@
 
 == SparkPlug.php ==
 
-Add the file to your application/libraries folder
+Add the file to your application/libraries folder - I renamed mine to SparkPlug for simplicity.
 
-In the controller you want to scaffold load the class and pass the table name as a parameter:
+In the controller/function you want to scaffold load the class and pass the table name as a parameter:
 
 {{{
 <?php
@@ -16,34 +16,23 @@ class Scaffold_test extends Controller {
 	function Scaffold_test() {
 		parent::Controller();
 	}
-		
+
 	function index() {
-		$this->load->library('sparkPlug', 'table_name');
+		$this->load->library('sparkPlug', 'test');
+		$this->sparkplug->scaffold();
+		$this->sparkplug->generate();
 	}
 }
 }}}
+
+Use *either* scaffold or generate.  Do *not* use both.
+
+Scaffold will present you with all the functions scaffold gives you, but it does not generate any code.  Use scaffold for quick changes in a table that does not require full blown access.
+
+Using Generate the current controller will be overwritten with any code you need.
+
 
 Going to the index function in your browser will run the scaffolding.  There is *NO* warning, yet.  It just does it's thing, no questions asked.  Read Caution statement at the bottom of the page.
-
-== Scaffold.php ==
-
-This does pretty much the same thing that the CI default scaffolding does
-
-{{{
-<?php
-class Scaffold_test extends Controller {
-
-	function Scaffold_test() {
-		parent::Controller();
-	}
-		
-	function scaff() {
-		$this->load->library('scaffold', 'table_name');
-	}
-}
-}}}
-
-Pointing your browser at the proper controller/function (scaffold_test/scaff in this case) will present you with basic CRUD functions generated on-the-fly.
 
 
 = Caution - when using SparkPlug =
