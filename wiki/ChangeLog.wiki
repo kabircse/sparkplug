@@ -5,6 +5,7 @@
  * Added DeveloperInformation
 
 = Version 0.3 =
+ * Consolidated the files.  Check out Usage for the new implementation.
  * The dynamic version now has urls similar to what the generated version uses.  
  * It no longer uses posts for routing (phew).  It also looks almost identical to what is generated.
  * The primary keys no longer show in forms.
