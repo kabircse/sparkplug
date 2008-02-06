@@ -12,5 +12,7 @@
  * All meta-data has been removed from the generated code (the model function still exists for convenience). 
  * And last but not least I added some comments to the code, so it should be a little easier to read.
 
+===There were a few Versions in between that I don't remember - this page started with Version 0.3===
+
 = Version 0.1 =
  * Library Created
