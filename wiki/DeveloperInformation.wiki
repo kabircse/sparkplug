@@ -160,3 +160,132 @@ class {ucf_controller} extends Controller {
 	}
 }'
 }}}
+
+== Model ==
+|| {model_name} || Upper case model name for use in the class name and constructor ||
+|| {table} || Name of the scaffolded table ||
+|| {variables} || Variables initializations ||
+|| {set_variables_from_post} || All the variables replaced by their $_POST counterparts ||
+
+*Default:*
+
+{{{
+'<?php
+class {model_name} extends Model {
+	{variables}
+
+	function {model_name}() {
+		parent::Model();
+	}
+
+	function insert() {
+		{set_variables_from_post}
+
+		$this->db->insert(\'{table}\', $this);
+	}
+
+	function get($id) {
+		$query = $this->db->get_where(\'{table}\', array(\'id\' => $id));
+		return $query->result_array();
+	}
+	
+	function get_all() {
+		$query = $this->db->get(\'{table}\');
+		return $query->result_array();
+	}
+	
+	function get_field_data() {
+		return $this->db->field_data(\'{table}\');
+	}
+
+	function update() {
+		{set_variables_from_post}
+
+		$this->db->update(\'{table}\', $this, array(\'id\' => $_POST[\'id\']));
+	}
+
+	function delete($id) {
+		$this->db->delete(\'{table}\', array(\'id\' => $id));
+	}
+}'
+}}}
+
+== Views ==
+|| {controller} || Controller name for links, etc ||
+|| {form_fields_create} || Empty form entry fields for all table fields ||
+|| {form_fields_update} || Same as {form_fields_create}, but with existing data passed to view ||
+
+*Default - Index:*
+
+{{{
+'You should not see this after scaffolding - index controller redirect by default.'
+}}}
+
+*Default - List:*
+
+{{{
+'<p style="color: green"><?= $this->session->flashdata(\'msg\') ?></p>
+
+<h1>List</h1>
+
+<table>
+	<tr>
+	<? foreach(array_keys($results[0]) as $key): ?>
+		<th><?= ucfirst($key) ?></th>
+	<? endforeach; ?>
+	</tr>
+
+<? foreach ($results as $row): ?>
+	<tr>
+	<? foreach ($row as $field_value): ?>
+		<td><?= $field_value ?></td>
+	<? endforeach; ?>
+		<td> <?= anchor("{controller}/show/".$row[\'id\'], \'View\') ?></td>
+		<td> <?= anchor("{controller}/edit/".$row[\'id\'], \'Edit\') ?></td>
+		<td> <?= anchor("{controller}/delete/".$row[\'id\'], \'Delete\') ?></td>
+	</tr>
+<? endforeach; ?>
+</table>
+<?= anchor("{controller}/new_entry", "New") ?>'
+}}}
+
+*Default - Show:*
+
+{{{
+'<h1>Show</h1>
+
+<? foreach ($result[0] as $field_name => $field_value): ?>
+<p>
+	<b><?= ucfirst($field_name) ?>:</b> <?= $field_value ?>
+</p>
+<? endforeach; ?>
+<?= anchor("{controller}/show_list", "Back") ?>'
+}}}
+
+*Default - Edit:*
+
+{{{
+'<h1>Edit</h1>
+
+<?= form_open(\'{controller}/update\') ?>
+{form_fields_update}
+<p>
+	<?= form_submit(\'submit\', \'Update\') ?>
+</p>
+<?= form_close() ?>
+<?= anchor("{controller}/show_list", "Back") ?>'
+}}}
+
+*Default - New:*
+
+{{{
+'<h1>New</h1>
+
+<?= form_open(\'{controller}/create\') ?>
+{form_fields_create}
+<p>
+	<?= form_submit(\'submit\', \'Create\') ?>
+</p>
+<?= form_close() ?>
+<?= anchor("{controller}/show_list", "Back") ?>'
+}}}
