@@ -20,6 +20,7 @@ class Scaffold_test extends Controller {
 	function index() {
 		$this->load->library('sparkPlug', 'test');
 		$this->sparkplug->scaffold();
+                /* OR */
 		$this->sparkplug->generate();
 	}
 }
