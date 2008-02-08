@@ -28,8 +28,8 @@ class Scaffold_test extends Controller {
 
 Use *either* scaffold or generate.  Do *not* use both.
 
- `$this->sparkplug->scaffold();` is similar to the native CI scaffolding.
- `$this->sparkplug->generate();` generates code to provide the same features as scaffold() did.
+ # `$this->sparkplug->scaffold();` is similar to the native CI scaffolding.
+ # `$this->sparkplug->generate();` generates code to provide the same features as scaffold() did.
 
 Scaffold will present you with all the functions generate gives you, but it does not generate any code.  Use scaffold for quick changes in a table that does not require full blown access.
 
