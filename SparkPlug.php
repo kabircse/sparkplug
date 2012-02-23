@@ -12,11 +12,12 @@
  * Creates a dynamic CRUD environment for any given database table
  *
  * @author Pascal Kriete
+ * @author Jason Wheeler (updated to v0.4 to work with CodeIgniter v2.0)
  *
  * Thanks vascopj on the ci forums for his suggestions
  **/
 
-class SparkPlug {
+class SparkPlug extends CI_Controller {
 	var $CI;				// CI Super Object
 	var $table;				// Table specified in the constructor
 	
@@ -33,14 +34,18 @@ class SparkPlug {
 	/**
 	 * Constructor
 	 */
-	function SparkPlug($table) {
+	function __construct() {
+		parent::__construct();
+	
 		$this->CI =& get_instance();
 		
 		$this->CI->load->database();
 		$this->CI->load->library('session');
 		$this->CI->load->helper('form');
 		$this->CI->load->helper('url');
-		
+	}
+	
+	private function setTable($table) {
 		if (!$this->CI->db->table_exists($table)) {
 			die('Table <strong>'.$table.'</strong> does not exist.');
 		}
@@ -48,19 +53,18 @@ class SparkPlug {
 		$this->table = $table;
 	}
 	
-	
 	/**
 	 * Public Function
 	 *
 	 * Starts the dynamic scaffolding process
 	 */
-	function scaffold() {
+	function scaffold($name) {
+		$this->setTable($name);
+
 		/* Get rid of the CI default nonsense and set real path */
 		$route =& load_class('Router');
-		$base_url = $this->CI->config->site_url();
-		if ($route->directory != '') { $base_url .= '/'; }
-		
-		$this->base_uri = $route->directory.'/'.$route->class.'/'.$route->method;
+
+		$this->base_uri = $route->directory.'/'.$route->class.'/'.$route->method.'/'.$name;
 
 		/* Did we call a subfunction - catch it here */
 		$segs = $this->CI->uri->segment_array();
@@ -82,14 +86,16 @@ class SparkPlug {
 	 * 
 	 * Starts the code generation process
 	 */
-	function generate() {
+	function generate($name) {
+		$this->setTable($name);
+
 		/* Create model name based on table */
-		$this->model_name = ucfirst(strtolower($this->table));
+		$this->model_name = ucfirst(strtolower($this->table)) . "_model";
 		
 		/* Figure out the calling controller - that's the one we want to fix */
 		$route =& load_class('Router');
-		$this->controller = $route->class;
-		$this->ucf_controller = ucfirst($route->class);
+		$this->controller = $this->table;
+		$this->ucf_controller = strtolower($this->table);
 		
 		$this->_generate();  //** FUNCTION FOUND BELOW (l.370) **//
 	}
@@ -124,22 +130,22 @@ class SparkPlug {
 		}
 
 		/* All forms submit to index, so we may be somewhere else */
-		switch ($this->request[0]) {
+		switch (@$this->request[1]) {
 			case 'show':
-				$this->_dynamic('show');
+				$this->_show();
 				break;
 			case 'add':
-				$this->_dynamic('insert');
+				$this->_insert();
 				break;
 			case 'edit':
-				$this->_dynamic('edit');
+				$this->_edit();
 				break;
 			case 'delete':
-				$this->_dynamic('delete');
-				break;
+				$this->_delete();
 			default:
-				// Nope, seems we really wanted index (or entered an invalid url);
-				$this->_dynamic();
+			case 'list':
+				$this->_list();
+				break;
 		}		
 	}
 	
@@ -175,68 +181,15 @@ class SparkPlug {
 		$this->CI->session->set_flashdata('msg', 'Entry Deleted');
 		redirect($this->base_uri);
 	}
-
-	function _db_get_fields() {
-
-		$result = $this->CI->db->simple_query("SHOW COLUMNS FROM ".$this->table);
-		while($row = mysql_fetch_object($result)){
-		   $F = new stdClass();
-		   $F->name = $row->Field;
-		   if(strpos($row->Type, "(")) {
-			   list($type, $max_length) = split("--", str_replace("(", "--", str_replace(")", "", $row->Type)));
-		   }
-		   else {
-		   	$type = $row->Type;
-		   }
-		   $F->type = $type;
-		   $F->default = $row->Default;
-		   if(is_numeric($max_length)) {
-		   	$F->max_length = $max_length;
-		   }
-		   else {
-			   $F->values = $max_length;
-			   $F->max_length = 1;
-		   }
-		   $F->primary_key = 0;
-		   if($row->Key == "PRI") {
-		   	$F->primary_key = 1;
-		   }
-		   $fields[] = $F; 
-		}
-		return $fields;
-	}
 	
 	
 	/*****								*****/
 	/*****		SHOW FORMS AND DATA		*****/
 	/*****								*****/
 	
-    function _dynamic($action = 'list') {	//action comes from _processRequests
-		
-		switch ($action) {
-			case 'list':
-				$this->_list();
-				break;
-			case 'show':
-				$this->_show();
-				break;
-			case 'insert':
-				$this->_insert();
-				break;
-			case 'edit':
-				$this->_edit();
-				break;
-			case 'delete':
-				$this->_delete();				
-			default:
-				$this->_list();
-		}
-		
-    }
-
 	//Special case - here so that "Delete" can be a link instead of a button
 	function _delete() {
-		$id = $this->request[1];
+		$id = $this->request[2];
 		$this->_db_delete($id);
 	}
 
@@ -248,15 +201,16 @@ class SparkPlug {
 		echo "<h1>List</h1>";
 
 		$table = '<table><tr>';
-		foreach ($fields as $field)
-		   $table .= '<th>'.ucwords(str_replace("_", " ", $field)).'</th>';
+		forEach ($fields as $field) {
+		   $table .= '<th>'.ucfirst($field).'</th>';
+		}
 		$table.= '</tr>';
 
-		foreach ($query->result_array() as $row)
-		{
+		forEach ($query->result_array() as $row) {
 			$table.= '<tr>';
-			foreach ($fields as $field)
-			   $table.= '<td>'.$row[$field].'</td>';
+			forEach ($fields as $field) {
+				$table.= '<td>'.$row[$field].'</td>';
+			}
 			
 			$table.= '<td>'.$this->_show_link($row['id']).'</td>'.
 							'<td>'.$this->_edit_link($row['id']).'</td>'.
@@ -269,38 +223,32 @@ class SparkPlug {
 		
 		echo $this->_insert_link();
 		$this->_footer();
-		
 	}
 	
 	function _show() {
-		$this->_header();
 		echo '<h1>Show</h1>';
 		
-		$id = $this->request[1];
+		$id = $this->request[2];
 		$this->CI->db->where('id', $id);
 		$query = $this->CI->db->get($this->table);
 		
 		$data = $query->result_array();
 		
-		foreach ($data[0] as $field_name => $field_value) {
-		echo '<p>
-			  <b>'.ucwords(str_replace("_", " ", $field_name)).':</b>'.$field_value.'
-			  </p>';
+		forEach ($data[0] as $field_name => $field_value) {
+			echo '<p>
+				  <b>'.ucfirst($field_name).':</b>'.$field_value.'
+				  </p>';
 		}
 		echo $this->_back_link();
-		$this->_footer();
 	}
 
 	function _insert() {
-		$this->_header();
 		echo '<h1>New</h1>';
 		
-//		$fields = $this->CI->db->field_data($this->table);
-		$fields = $this->_db_get_fields();
-
+		$fields = $this->CI->db->field_data($this->table);
 		$form = form_open($this->base_uri);
 		
-		foreach($fields as $field) {
+		forEach($fields as $field) {
 			$form .= $this->_insertMarkup($field);
 		}
 
@@ -310,36 +258,30 @@ class SparkPlug {
 		echo $form;
 		
 		echo $this->_back_link();
-		$this->_footer();
 	}
 	
 	function _edit() {
-		$this->_header();
 		echo '<h1>Edit</h1>';
 
-		$id = $this->request[1];
+		$id = $this->request[2];
 		$this->CI->db->where('id', $id);
 		$query = $this->CI->db->get($this->table);
 		
 		$data = $query->result_array();
 		
-//		$fields = $this->CI->db->field_data($this->table);
-		$fields = $this->_db_get_fields();
-
-		
+		$fields = $this->CI->db->field_data($this->table);
 		
 		$form = form_open($this->base_uri);
 		
-		foreach($fields as $field) {
+		forEach($fields as $field) {
 			$form .= $this->_editMarkup($field, $data[0]);
 		}
 
 		$form .= form_hidden('action', 'edit');
-		$form .= form_submit('submit', 'Update');
+		$form .= '<p>'.$this->_back_link();
+		$form .= form_submit('submit', 'Update').'</p>';
 		$form .= form_close();
-		$form .= '<p>'.$this->_back_link().'</p>';
 		echo $form;		
-		$this->_footer();
 	}
 	
 	/**
@@ -354,32 +296,26 @@ class SparkPlug {
 		else {
 			
 			$form_markup = "\n\t<p>\n";
-			$form_markup .= '	<label for="'.$field->name.'">'.ucwords(str_replace("_", " ", $field->name)).'</label>';
+			$form_markup .= '	<label for="'.$field->name.'">'.ucfirst($field->name).'</label>';
 			$form_markup .= "<br/>\n\t";
-		
+
 			switch ($field->type) {
 				case 'int':
 					$form_markup .= form_input($field->name, '');
 					break;
-				case 'varchar':
-					$form_markup .= form_input($field->name, '');
-					break;
-				case 'text':
+				case 'blob':
 					$form_markup .= form_textarea($field->name, '');
 					break;
 				case 'datetime':
 					$form_markup .= form_input($field->name, date("Y-m-d H:i:s"));
 					break;
-				case 'enum':
-					$options = split(",", str_replace("'", "", $field->values));
-					foreach($options as $name) {
-						$checked = FALSE;
-						if($name == $field->default) {
-							$checked = TRUE;
-						}
-						$form_markup .= form_radio($field->name, $name, $checked).$name;
-					}
+				case 'string':
+				case 'char':
+				case 'varchar':
+				default:
+					$form_markup .= form_input($field->name, '');
 					break;
+				
 			}
 		
 			$form_markup .= "\t</p>\n";
@@ -397,31 +333,24 @@ class SparkPlug {
 		else {
 
 			$form_markup = "\n\t<p>\n";
-			$form_markup .= '	<label for="'.$field->name.'">'.ucwords(str_replace("_", " ", $field->name)).'</label>';
+			$form_markup .= '	<label for="'.$field->name.'">'.ucfirst($field->name).'</label>';
 			$form_markup .= "<br/>\n\t";
 		
 			switch ($field->type) {
 				case 'int':
 					$form_markup .= form_input($field->name, $data[$field->name]);
 					break;
-				case 'varchar':
-					$form_markup .= form_input($field->name, $data[$field->name]);
-					break;
-				case 'text':
+				case 'blob':
 					$form_markup .= form_textarea($field->name, $data[$field->name]);
 					break;
 				case 'datetime':
 					$form_markup .= form_input($field->name, $data[$field->name]);
 					break;
-				case 'enum':
-					$options = split(",", str_replace("'", "", $field->values));
-					foreach($options as $name) {
-						$checked = FALSE;
-						if($name == $field->default) {
-							$checked = TRUE;
-						}
-						$form_markup .= form_radio($field->name, $name, $checked).$name;
-					}
+				case 'string':
+				case 'char':
+				case 'varchar':
+				default:
+					$form_markup .= form_input($field->name, $data[$field->name]);
 					break;
 			}
 		
@@ -460,152 +389,6 @@ class SparkPlug {
 				"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 				<html lang="en">
 				<head>
-<style type="text/css">
-body {
- margin: 0;
- padding: 0;
- font-family: Lucida Grande, Verdana, Geneva, Sans-serif;
- font-size: 11px;
- color: #4F5155;
- background: #fff url(http://codeigniter/system/scaffolding/images/background.jpg) repeat-x left top;
-}
-
-a {
- color: #8B0D00;
- background-color: transparent;
- text-decoration: none;
- font-weight: bold;
-}
-
-a:visited {
- color: #8B0D00;
- background-color: transparent;
- text-decoration: none;
-}
-
-a:hover {
- color: #000;
- text-decoration: none;
- background-color: transparent;
-}
-
-
-#header {
- margin: 0;
- padding: 0;
-}
-
-#header_left {
- background-color: transparent;
- float: left;
- padding: 21px 0 0 32px;
- margin: 0
-}
-
-#header_right {
- background-color: transparent;
- float: right;
- text-align: right;
- padding: 35px 50px 20px 0;
- margin: 0
-}
-
-#footer {
- margin: 20px 0 15px 0;
- padding: 0;
-}
-
-#footer p {
- font-size: 10px;
- color: #999;
- text-align: center;
-}
-
-#outer {
- margin: 30px 40px 0 40px;
-}
-
-img {
- padding:0;
- border: 0;
- margin: 0;
-}
-
-.nopad {
- padding:0;
- border: 0;
- margin: 0;
-}
-
-table {
- background-color: #efefef;
-}
-
-th {
- background-color: #eee;
- font-weight: bold;
- padding: 6px;
- text-align: left;
-}
-
-td {
- background-color: #fff;
- padding: 6px;
-}
-
-
-form {
- margin: 0;
- padding: 0;
-}
-
-.input {
- font-family: Lucida Grande, Verdana, Geneva, Sans-serif;
- font-size: 11px;
- width: 600px;
- color: #333;
- border: 1px solid #B3B4BD;
- font-size: 11px;
- height: 2em;
- padding: 0;
- margin: 0;
-}
-
-.textarea {
- font-family: Lucida Grande, Verdana, Geneva, Sans-serif;
- font-size: 12px;
- width: 600px;
- color: #333;
- border: 1px solid #B3B4BD;
- padding: 0;
- margin: 0;
-}
-
-.select {
- background-color: #fff;
- font-size:  11px;
- font-weight: normal;
- color: #333;
- padding: 0;
- margin: 0 0 3px 0;
-}
-
-.checkbox {
- background-color: transparent;
- padding: 0;
- border: 0;
-}
-
-.submit {
- background-color: #8B0D00;
- color: transparent;
- font-weight: normal;
- border: 1px solid #000;
- margin: 6px 0 0 0;
- padding: 1px 5px 1px 5px;
-}
-</style>
-
 				<meta http-equiv="Content-type" content="text/html; charset=utf-8">
 				<meta name="Developer" content="Pascal Kriete" />
 				<title>Scaffolding - '.ucfirst($this->table).'</title>
@@ -637,7 +420,7 @@ form {
 		
 		echo "<h3>Running SparkPlug...</h3>";
 
-		$model_path = APPPATH.'models/'.$this->table.'.php';
+		$model_path = APPPATH.'models/'.$this->model_name.'.php';
 		$model_text = $this->_generate_model();
 		
 		file_put_contents($model_path, $model_text);
@@ -648,10 +431,10 @@ form {
 		$view_folder = APPPATH.'views/'.strtolower($this->controller);
 		$view_text = $this->_generate_views();
 		
-		$dir_created = mkdir($view_folder);
+		$dir_created = @mkdir($view_folder);
 		echo $dir_created ? $view_folder.' created<br/>' : $view_folder.' already exists - no need to create<br/>';
 		
-		foreach ($view_text as $view_name => $view) {
+		forEach ($view_text as $view_name => $view) {
 			$view_path = $view_folder.'/'.$view_name.'.php';
 			
 			file_put_contents($view_path, $view);
@@ -693,7 +476,7 @@ form {
 		list($model_text, $indent) = $this->_fix_indent($model_text, 'variables');
 
 		$var_init = '';
-		foreach ($fields as $field) {
+		forEach ($fields as $field) {
 			$var_init .= $indent.'var $'.$field."	= '';\n";
 		}
 		$model_text = str_replace("{variables}\n", $var_init, $model_text);
@@ -703,11 +486,10 @@ form {
 		list($model_text, $indent) = $this->_fix_indent($model_text, 'set_variables_from_post');
 		
 		$var_set = '';
-		foreach ($fields as $field) {
+		forEach ($fields as $field) {
 			$var_set .= $indent.'$this->'.$field.'	= $_POST[\''.$field."'];\n";
 		}
 		$model_text = str_replace("{set_variables_from_post}\n", $var_set, $model_text);
-
 
 		return $model_text;
 	}
@@ -730,7 +512,7 @@ form {
 
 		$view_text = array();
 
-		foreach ($views as $view) {
+		forEach ($views as $view) {
 			$view_funct = '_'.$view.'_view';
 			
 			if (method_exists($this, $view_funct)) {
@@ -801,11 +583,12 @@ form {
 		$fields = $this->CI->db->field_data($this->table);
 		$form = '';
 		
-		foreach($fields as $field) {
-			if ($action == 'update')
+		forEach($fields as $field) {
+			if ($action == 'update') {
 				$form .= $this->_getEditMarkup($field);
-			else
+			} else {
 				$form .= $this->_getMarkup($field);
+			}
 		}
 				
 		return $form;
@@ -824,27 +607,30 @@ form {
 		
 		else {
 		
-		$form_markup = "\n\t<p>\n";
-		$form_markup .= '	<label for="'.$field->name.'">'.ucfirst($field->name).'</label>';
-		$form_markup .= "<br/>\n\t";
-		
-		switch ($field->type) {
-			case 'int':
-				$form_markup .= form_input($field->name);
-				break;
-			case 'string':
-				$form_markup .= form_input($field->name);
-				break;
-			case 'blob':
-				$form_markup .= form_textarea($field->name);
-				break;
-			case 'datetime':
-				$form_markup .= '<input type="text" name="'.$field->name.'" value="<?= date("Y-m-d H:i:s") ?>" maxlength="500" size="50"  />';
-				break;
-		}
-		
-		$form_markup .= "\t</p>\n";
-		return $form_markup;
+			$form_markup = "\n\t<p>\n";
+			$form_markup .= '	<label for="'.$field->name.'">'.ucfirst($field->name).'</label>';
+			$form_markup .= "<br/>\n\t";
+			
+			switch ($field->type) {
+				case 'int':
+					$form_markup .= form_input($field->name);
+					break;
+				case 'blob':
+					$form_markup .= form_textarea($field->name);
+					break;
+				case 'datetime':
+					$form_markup .= '<input type="text" name="'.$field->name.'" value="<?php echo date("Y-m-d H:i:s"); ?>" maxlength="500" size="50"  />';
+					break;
+				case 'string':
+				case 'char':
+				case 'varchar':
+				default:
+					$form_markup .= form_input($field->name);
+					break;
+			}
+			
+			$form_markup .= "\t</p>\n";
+			return $form_markup;
 		
 		}
 	}
@@ -856,31 +642,34 @@ form {
 	 */
 	function _getEditMarkup($field) {
 		if ($field->primary_key) {
-			return '<input type="hidden" name="'.$field->name.'" value=<?= $result["'.$field->name.'"]?> />';
+			return '<input type="hidden" name="'.$field->name.'" value=<?php echo $result["'.$field->name.'"]?> />';
 		}
 		
 		else {
 		
-		$form_markup = "\n\t<p>\n";
-		$form_markup .= '	<label for="'.$field->name.'">'.ucfirst($field->name).'</label>';
-		$form_markup .= "<br/>\n\t";
-		
-		switch ($field->type) {
-			case 'int':
-				$form_markup .= '<input type="text" name="'.$field->name.'" value="<?= $result["'.$field->name.'"]?>" maxlength="500" size="50" />';
-				break;
-			case 'string':
-				$form_markup .= '<input type="text" name="'.$field->name.'" value="<?= $result["'.$field->name.'"]?>" maxlength="500" size="50"  />';
-				break;
-			case 'blob':
-				$form_markup .= '<textarea name="'.$field->name.'" cols="90" rows="12" ><?= $result["'.$field->name.'"]?></textarea>';
-				break;
-			case 'datetime':
-				$form_markup .= '<input type="text" name="'.$field->name.'" value="<?= $result["'.$field->name.'"]?>" maxlength="500" size="50"  />';
-				break;
-		}
-		$form_markup .= "\n\t</p>\n";
-		return $form_markup;
+			$form_markup = "\n\t<p>\n";
+			$form_markup .= '	<label for="'.$field->name.'">'.ucfirst($field->name).'</label>';
+			$form_markup .= "<br/>\n\t";
+
+			switch ($field->type) {
+				case 'int':
+					$form_markup .= '<input type="text" name="'.$field->name.'" value="<?php echo $result["'.$field->name.'"]?>" maxlength="500" size="50" />';
+					break;
+				case 'blob':
+					$form_markup .= '<textarea name="'.$field->name.'" cols="90" rows="12" ><?php echo $result["'.$field->name.'"]?></textarea>';
+					break;
+				case 'datetime':
+					$form_markup .= '<input type="text" name="'.$field->name.'" value="<?php echo $result["'.$field->name.'"]?>" maxlength="500" size="50"  />';
+					break;
+				case 'string':
+				case 'char':
+				case 'varchar':
+				default:
+					$form_markup .= '<input type="text" name="'.$field->name.'" value="<?php echo $result["'.$field->name.'"]?>" maxlength="500" size="50"  />';
+					break;
+			}
+			$form_markup .= "\n\t</p>\n";
+			return $form_markup;
 		
 		}
 	}
@@ -902,10 +691,10 @@ form {
 	function _controller_text() {
 		return
 '<?php
-class {ucf_controller} extends Controller {
+class {ucf_controller} extends CI_Controller {
 
-	function {ucf_controller}() {
-		parent::Controller();
+	function __construct() {
+		parent::__construct();
 		
 		$this->load->database();
 		$this->load->model(\'{model}\');
@@ -974,11 +763,11 @@ class {ucf_controller} extends Controller {
 	function _model_text() {
 		return
 '<?php
-class {model_name} extends Model {
+class {model_name} extends CI_Model {
 	{variables}
 
-	function {model_name}() {
-		parent::Model();
+	function __construct() {
+		parent::__construct;
 	}
 
 	function insert() {
@@ -1031,29 +820,29 @@ class {model_name} extends Model {
 	/* LIST */
 	function _list_view() {
 		return
-'<p style="color: green"><?= $this->session->flashdata(\'msg\') ?></p>
+'<p style="color: green"><?php echo $this->session->flashdata(\'msg\'); ?></p>
 
 <h1>List</h1>
 
 <table>
 	<tr>
-	<? foreach(array_keys($results[0]) as $key): ?>
-		<th><?= ucfirst($key) ?></th>
-	<? endforeach; ?>
+	<?php foreach(array_keys($results[0]) as $key): ?>
+		<th><?php echo ucfirst($key); ?></th>
+	<?php endforeach; ?>
 	</tr>
 
-<? foreach ($results as $row): ?>
+<?php foreach ($results as $row): ?>
 	<tr>
-	<? foreach ($row as $field_value): ?>
-		<td><?= $field_value ?></td>
-	<? endforeach; ?>
-		<td> <?= anchor("{controller}/show/".$row[\'id\'], \'View\') ?></td>
-		<td> <?= anchor("{controller}/edit/".$row[\'id\'], \'Edit\') ?></td>
-		<td> <?= anchor("{controller}/delete/".$row[\'id\'], \'Delete\') ?></td>
+	<?php foreach ($row as $field_value): ?>
+		<td><?php echo $field_value ?></td>
+	<?php endforeach; ?>
+		<td> <?php echo anchor("{controller}/show/".$row[\'id\'], \'View\'); ?></td>
+		<td> <?php echo anchor("{controller}/edit/".$row[\'id\'], \'Edit\'); ?></td>
+		<td> <?php echo anchor("{controller}/delete/".$row[\'id\'], \'Delete\'); ?></td>
 	</tr>
-<? endforeach; ?>
+<?php endforeach; ?>
 </table>
-<?= anchor("{controller}/new_entry", "New") ?>';
+<?php echo anchor("{controller}/new_entry", "New"); ?>';
 
 	}
 	
@@ -1062,12 +851,12 @@ class {model_name} extends Model {
 		return
 '<h1>Show</h1>
 
-<? foreach ($result[0] as $field_name => $field_value): ?>
+<?php foreach ($result[0] as $field_name => $field_value): ?>
 <p>
-	<b><?= ucfirst($field_name) ?>:</b> <?= $field_value ?>
+	<b><?php echo ucfirst($field_name); ?>:</b> <?php echo $field_value ?>
 </p>
-<? endforeach; ?>
-<?= anchor("{controller}/show_list", "Back") ?>';
+<?php endforeach; ?>
+<?php echo anchor("{controller}/show_list", "Back"); ?>';
 	}
 
 	/* EDIT */
@@ -1075,13 +864,13 @@ class {model_name} extends Model {
 		return 
 '<h1>Edit</h1>
 
-<?= form_open(\'{controller}/update\') ?>
+<?php echo form_open(\'{controller}/update\'); ?>
 {form_fields_update}
 <p>
-	<?= form_submit(\'submit\', \'Update\') ?>
+	<?php echo form_submit(\'submit\', \'Update\'); ?>
 </p>
-<?= form_close() ?>
-<?= anchor("{controller}/show_list", "Back") ?>';
+<?php echo form_close(); ?>
+<?php echo anchor("{controller}/show_list", "Back"); ?>';
 	}
 	
 	/* NEW */
@@ -1089,13 +878,15 @@ class {model_name} extends Model {
 		return 
 '<h1>New</h1>
 
-<?= form_open(\'{controller}/create\') ?>
+<?php echo form_open(\'{controller}/create\'); ?>
 {form_fields_create}
 <p>
-	<?= form_submit(\'submit\', \'Create\') ?>
+	<?php echo form_submit(\'submit\', \'Create\'); ?>
 </p>
-<?= form_close() ?>
-<?= anchor("{controller}/show_list", "Back") ?>';
+<?php echo form_close(); ?>
+<?php echo anchor("{controller}/show_list", "Back"); ?>';
 	}
 	
 }
+
+?>
