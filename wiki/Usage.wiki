@@ -3,7 +3,22 @@
 
 = Usage =
 
-== SparkPlug.php ==
+== SparkPlug.php v0.4 ==
+
+Remove the version info from the file name (rename to SparkPlug.php) then add the file to your application/controller folder.
+
+You can then access the scaffolding feature at:
+http://yourhost/SparkPlug/scaffolding/{table_name}
+
+For example, to scaffold a table named 'users':
+http://yourhost/SparkPlug/scaffolding/users
+
+If instead of scaffolding you want to generate the actual files:
+http://yourhost/SparkPlug/generate/users
+
+*DO NOT include this file when pushing your website to a production server or any server that can be accessed publicly.  It allows almost unrestricted access to your database by ANYONE.*
+
+== SparkPlug.php v0.31 ==
 
 Add the file to your application/libraries folder - I renamed mine to SparkPlug for simplicity.
 
