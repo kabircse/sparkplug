@@ -5,7 +5,7 @@
 
 == SparkPlug.php v0.4 ==
 
-Remove the version info from the file name (rename to SparkPlug.php) then add the file to your application/controller folder.
+Remove the version info from the file name (rename to SparkPlug.php) then add the file to your application/controllers folder.
 
 You can then access the scaffolding feature at:
 http://yourhost/SparkPlug/scaffolding/{table_name}
