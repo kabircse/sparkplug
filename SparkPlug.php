@@ -58,26 +58,32 @@ class SparkPlug extends CI_Controller {
 	 *
 	 * Starts the dynamic scaffolding process
 	 */
-	function scaffold($name) {
-		$this->setTable($name);
+	function scaffold($name = '') {
+		if (empty($name)) {
+			echo "Choose a table to scaffold:<br /><br />";
+			$tables = $this->db->list_tables();
+			forEach ($tables as $table) {
+				echo anchor("SparkPlug/scaffold/$table", $table) . "<br />";
+			}
+		} else {
+			$this->setTable($name);
 
-		/* Get rid of the CI default nonsense and set real path */
-		$route =& load_class('Router');
+			/* Get rid of the CI default nonsense and set real path */
+			$route =& load_class('Router');
 
-		$this->base_uri = $route->directory.'/'.$route->class.'/'.$route->method.'/'.$name;
+			$this->base_uri = $route->directory.'/'.$route->class.'/'.$route->method.'/'.$name;
 
-		/* Did we call a subfunction - catch it here */
-		$segs = $this->CI->uri->segment_array();
-		$last = array_search($route->method, $segs);	// Everything beyond this is ours
-		
-		$this->request = array('');
-		if ($last < count($segs)) {
-			$this->request = array_slice($segs, $last);
+			/* Did we call a subfunction - catch it here */
+			$segs = $this->CI->uri->segment_array();
+			$last = array_search($route->method, $segs);	// Everything beyond this is ours
+			
+			$this->request = array('');
+			if ($last < count($segs)) {
+				$this->request = array_slice($segs, $last);
+			}
+
+			echo $this->_processRequest();
 		}
-
-		$this->_processRequest();
-
-		exit; //Prevent loading of index function if we're in the constructor
 	}
 	
 	
@@ -86,18 +92,26 @@ class SparkPlug extends CI_Controller {
 	 * 
 	 * Starts the code generation process
 	 */
-	function generate($name) {
-		$this->setTable($name);
+	function generate($name = '') {
+		if (empty($name)) {
+			echo "Choose a table to generate:<br /><br />";
+			$tables = $this->db->list_tables();
+			forEach ($tables as $table) {
+				echo anchor("SparkPlug/generate/$table", $table) . "<br />";
+			}
+		} else {
+			$this->setTable($name);
 
-		/* Create model name based on table */
-		$this->model_name = ucfirst(strtolower($this->table)) . "_model";
-		
-		/* Figure out the calling controller - that's the one we want to fix */
-		$route =& load_class('Router');
-		$this->controller = $this->table;
-		$this->ucf_controller = strtolower($this->table);
-		
-		$this->_generate();  //** FUNCTION FOUND BELOW (l.370) **//
+			/* Create model name based on table */
+			$this->model_name = ucfirst(strtolower($this->table)) . "_model";
+			
+			/* Figure out the calling controller - that's the one we want to fix */
+			$route =& load_class('Router');
+			$this->controller = $this->table;
+			$this->ucf_controller = strtolower($this->table);
+			
+			echo $this->_generate();  //** FUNCTION FOUND BELOW (l.370) **//
+		}
 	}
 	
 	
@@ -128,25 +142,31 @@ class SparkPlug extends CI_Controller {
 				$this->_db_delete();
 				break;
 		}
+		
+		$output = $this->_header();
 
 		/* All forms submit to index, so we may be somewhere else */
 		switch (@$this->request[1]) {
 			case 'show':
-				$this->_show();
+				$output .= $this->_show();
 				break;
 			case 'add':
-				$this->_insert();
+				$output .= $this->_insert();
 				break;
 			case 'edit':
-				$this->_edit();
+				$output .= $this->_edit();
 				break;
 			case 'delete':
 				$this->_delete();
 			default:
 			case 'list':
-				$this->_list();
+				$output .= $this->_list();
 				break;
-		}		
+		}
+		
+		$output .= $this->_footer();
+		
+		return $output;
 	}
 	
 	/*****								*****/
@@ -197,36 +217,35 @@ class SparkPlug extends CI_Controller {
 		$query = $this->CI->db->get($this->table);
 		$fields = $this->CI->db->list_fields($this->table);
 
-		$this->_header();
-		echo "<h1>List</h1>";
+		$form = "<h1>List - {$this->table}</h1>";
 
-		$table = '<table><tr>';
+		$form .= '<table><tr>';
 		forEach ($fields as $field) {
-		   $table .= '<th>'.ucfirst($field).'</th>';
+		   $form .= '<th>'.ucfirst($field).'</th>';
 		}
-		$table.= '</tr>';
+		$form.= '</tr>';
 
 		forEach ($query->result_array() as $row) {
-			$table.= '<tr>';
+			$form.= '<tr>';
 			forEach ($fields as $field) {
-				$table.= '<td>'.$row[$field].'</td>';
+				$form.= '<td>'.$row[$field].'</td>';
 			}
 			
-			$table.= '<td>'.$this->_show_link($row['id']).'</td>'.
+			$form.= '<td>'.$this->_show_link($row['id']).'</td>'.
 							'<td>'.$this->_edit_link($row['id']).'</td>'.
 							'<td>'.$this->_delete_link($row['id']).'</td>';
 
-			$table.= '</tr>';
+			$form.= '</tr>';
 		}
-		$table.= '</table>';
-		echo $table;
+		$form.= '</table>';
 		
-		echo $this->_insert_link();
-		$this->_footer();
+		$form .= $this->_insert_link();
+		
+		return $form;
 	}
 	
 	function _show() {
-		echo '<h1>Show</h1>';
+		$form = "<h1>Show - {$this->table}</h1>";
 		
 		$id = $this->request[2];
 		$this->CI->db->where('id', $id);
@@ -235,18 +254,20 @@ class SparkPlug extends CI_Controller {
 		$data = $query->result_array();
 		
 		forEach ($data[0] as $field_name => $field_value) {
-			echo '<p>
+			$form .= '<p>
 				  <b>'.ucfirst($field_name).':</b>'.$field_value.'
 				  </p>';
 		}
-		echo $this->_back_link();
+		$form .= $this->_back_link();
+		
+		return $form;
 	}
 
 	function _insert() {
-		echo '<h1>New</h1>';
+		$form = "<h1>New - {$this->table}</h1>";
 		
 		$fields = $this->CI->db->field_data($this->table);
-		$form = form_open($this->base_uri);
+		$form .= form_open($this->base_uri);
 		
 		forEach($fields as $field) {
 			$form .= $this->_insertMarkup($field);
@@ -255,13 +276,14 @@ class SparkPlug extends CI_Controller {
 		$form .= form_hidden('action', 'add');
 		$form .= form_submit('submit', 'Insert').'</p>';
 		$form .= form_close();
-		echo $form;
 		
-		echo $this->_back_link();
+		$form .= $this->_back_link();
+		
+		return $form;
 	}
 	
 	function _edit() {
-		echo '<h1>Edit</h1>';
+		$form = "<h1>Edit - {$this->table}</h1>";
 
 		$id = $this->request[2];
 		$this->CI->db->where('id', $id);
@@ -271,7 +293,7 @@ class SparkPlug extends CI_Controller {
 		
 		$fields = $this->CI->db->field_data($this->table);
 		
-		$form = form_open($this->base_uri);
+		$form .= form_open($this->base_uri);
 		
 		forEach($fields as $field) {
 			$form .= $this->_editMarkup($field, $data[0]);
@@ -281,7 +303,7 @@ class SparkPlug extends CI_Controller {
 		$form .= '<p>'.$this->_back_link();
 		$form .= form_submit('submit', 'Update').'</p>';
 		$form .= form_close();
-		echo $form;		
+		return $form;		
 	}
 	
 	/**
@@ -385,7 +407,7 @@ class SparkPlug extends CI_Controller {
 	}
 	
 	function _header() {
-		echo '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+		return '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
 				"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 				<html lang="en">
 				<head>
@@ -398,7 +420,7 @@ class SparkPlug extends CI_Controller {
 	}
 	
 	function _footer() {
-		echo '</body></html>';
+		return '</body></html>';
 	}
 	
 	
@@ -418,13 +440,14 @@ class SparkPlug extends CI_Controller {
 	function _generate() {
 		/* Make crud model */
 		
-		echo "<h3>Running SparkPlug...</h3>";
+		$output = $this->_header();
+		$output .= "<h3>Running SparkPlug...</h3>";
 
 		$model_path = APPPATH.'models/'.$this->model_name.'.php';
 		$model_text = $this->_generate_model();
 		
 		file_put_contents($model_path, $model_text);
-		echo $model_path.' created<br/>';
+		$output .= $model_path.' created<br/>';
 		
 		/* Generate views for crud functions in subfolder */
 
@@ -432,13 +455,13 @@ class SparkPlug extends CI_Controller {
 		$view_text = $this->_generate_views();
 		
 		$dir_created = @mkdir($view_folder);
-		echo $dir_created ? $view_folder.' created<br/>' : $view_folder.' already exists - no need to create<br/>';
+		$output .= $dir_created ? $view_folder.' created<br/>' : $view_folder.' already exists - no need to create<br/>';
 		
 		forEach ($view_text as $view_name => $view) {
 			$view_path = $view_folder.'/'.$view_name.'.php';
 			
 			file_put_contents($view_path, $view);
-			echo $view_path.' created<br/>';
+			$output .= $view_path.' created<br/>';
 		}
 		
 		/* Create the controller to tie it all up */
@@ -446,9 +469,12 @@ class SparkPlug extends CI_Controller {
 		$controller_path = APPPATH.'controllers/'.$this->ucf_controller.'.php';
 		$controller_text = $this->_generate_controller();
 		file_put_contents($controller_path, $controller_text);
-		echo $controller_path.' created<br/>';
+		$output .= $controller_path.' created<br/>';
 		
-		echo '<br/>Scaffold completed.  Click '.anchor($this->controller, 'here').' to get started.';
+		$output .= '<br/>Scaffold completed.  Click '.anchor($this->controller, 'here').' to get started.';
+		$output .= $this->_footer();
+		
+		return $output;
 	}
 	
 	/*****								*****/
@@ -747,7 +773,8 @@ class {ucf_controller} extends CI_Controller {
 		$this->session->set_flashdata(\'msg\', \'Entry Deleted\');
 		redirect(\'{controller}/show_list\');
 	}
-}';
+}
+?>';
 	}
 	
 	/**
@@ -799,7 +826,8 @@ class {model_name} extends CI_Model {
 	function delete($id) {
 		$this->db->delete(\'{table}\', array(\'id\' => $id));
 	}
-}';
+}
+?>';
 	}
 	
 	/**
@@ -822,7 +850,7 @@ class {model_name} extends CI_Model {
 		return
 '<p style="color: green"><?php echo $this->session->flashdata(\'msg\'); ?></p>
 
-<h1>List</h1>
+<h1>List - {controller}</h1>
 
 <table>
 	<tr>
@@ -849,7 +877,7 @@ class {model_name} extends CI_Model {
 	/* SHOW */
 	function _show_view() {
 		return
-'<h1>Show</h1>
+'<h1>Show - {controller}</h1>
 
 <?php foreach ($result[0] as $field_name => $field_value): ?>
 <p>
@@ -862,7 +890,7 @@ class {model_name} extends CI_Model {
 	/* EDIT */
 	function _edit_view() {
 		return 
-'<h1>Edit</h1>
+'<h1>Edit - {controller}</h1>
 
 <?php echo form_open(\'{controller}/update\'); ?>
 {form_fields_update}
@@ -876,7 +904,7 @@ class {model_name} extends CI_Model {
 	/* NEW */
 	function _new_view() {
 		return 
-'<h1>New</h1>
+'<h1>New - {controller}</h1>
 
 <?php echo form_open(\'{controller}/create\'); ?>
 {form_fields_create}
