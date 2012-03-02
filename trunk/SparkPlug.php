@@ -443,7 +443,7 @@ class SparkPlug extends CI_Controller {
 		$output = $this->_header();
 		$output .= "<h3>Running SparkPlug...</h3>";
 
-		$model_path = APPPATH.'models/'.$this->model_name.'.php';
+		$model_path = APPPATH.'models/'.strtolower($this->model_name).'.php';
 		$model_text = $this->_generate_model();
 		
 		file_put_contents($model_path, $model_text);
@@ -794,7 +794,7 @@ class {model_name} extends CI_Model {
 	{variables}
 
 	function __construct() {
-		parent::__construct;
+		parent::__construct();
 	}
 
 	function insert() {
@@ -852,24 +852,26 @@ class {model_name} extends CI_Model {
 
 <h1>List - {controller}</h1>
 
+<?php if (!empty($results)): ?>
 <table>
 	<tr>
-	<?php foreach(array_keys($results[0]) as $key): ?>
+	<?php forEach (array_keys($results[0]) as $key): ?>
 		<th><?php echo ucfirst($key); ?></th>
 	<?php endforeach; ?>
 	</tr>
 
-<?php foreach ($results as $row): ?>
+<?php forEach ($results as $row): ?>
 	<tr>
-	<?php foreach ($row as $field_value): ?>
+	<?php forEach ($row as $field_value): ?>
 		<td><?php echo $field_value ?></td>
-	<?php endforeach; ?>
+	<?php endForEach; ?>
 		<td> <?php echo anchor("{controller}/show/".$row[\'id\'], \'View\'); ?></td>
 		<td> <?php echo anchor("{controller}/edit/".$row[\'id\'], \'Edit\'); ?></td>
 		<td> <?php echo anchor("{controller}/delete/".$row[\'id\'], \'Delete\'); ?></td>
 	</tr>
 <?php endforeach; ?>
 </table>
+<?php endIf; ?>
 <?php echo anchor("{controller}/new_entry", "New"); ?>';
 
 	}
